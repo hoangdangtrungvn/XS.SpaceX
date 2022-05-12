@@ -2,80 +2,81 @@ using UnityEngine;
 
 public class Player : MonoBehaviour
 {
-    public float speed;
-    public bool isTouchTop;
-    public bool isTouchRight;
-    public bool isTouchBottom;
-    public bool isTouchLeft;
+    public Vector3 force;
+    public float maxShootDelay;
+    public float curShootDelay;
+    public GameObject bulletObjA;
+    public GameObject bulletObjB;
+    public int bulletType;
 
-    Animator animator;
+    private bool isDragging;
+    private float objWidth;
+    private float objHeight;
+    private Vector3 screenBounds;
 
     void Awake()
     {
-        animator = GetComponent<Animator>();
+        var objectSize = GetComponent<SpriteRenderer>().size;
+        var coliderSize = gameObject.GetComponent<BoxCollider2D>().size;
+        objWidth = (objectSize.x - coliderSize.x) / 2;
+        objHeight = (objectSize.y + coliderSize.x) / 2;
+
+        screenBounds = Camera.main.ScreenToWorldPoint(new Vector3(Screen.width, Screen.height, 0f));
     }
 
     void Update()
     {
-        var x = Input.GetAxisRaw("Horizontal");
-        if ((isTouchRight && x == 1) || (isTouchLeft && x == -1))
-            x = 0;
-        var y = Input.GetAxisRaw("Vertical");
-        if ((isTouchTop && y == 1) || (isTouchBottom && y == -1))
-            y = 0;
+        Move();
+        Fire();
+    }
 
-        var curPos = transform.position;
-        var nextPos = speed * Time.deltaTime * new Vector3(x, y, 0);
+    void Move()
+    {
+        var direction = Camera.main.ScreenToWorldPoint(Input.mousePosition);
 
-        transform.position = curPos + nextPos;
-
-        if (Input.GetButtonDown("Horizontal") || Input.GetButtonUp("Horizontal"))
+        if (isDragging)
         {
-            animator.SetInteger("Input", (int)x);
+            direction.x = Mathf.Clamp(direction.x, -screenBounds.x + objWidth, screenBounds.x - objWidth);
+            direction.y = Mathf.Clamp(direction.y, -screenBounds.y + objHeight, screenBounds.y - objHeight);
+
+            transform.position = new Vector3(direction.x, direction.y, 0f);
         }
     }
 
-    void OnTriggerEnter2D(Collider2D collision)
+    void OnMouseDrag()
     {
-        if (collision.gameObject.CompareTag("Border"))
-        {
-            switch (collision.gameObject.name)
-            {
-                case "Top":
-                    isTouchTop = true;
-                    break;
-                case "Right":
-                    isTouchRight = true;
-                    break;
-                case "Bottom":
-                    isTouchBottom = true;
-                    break;
-                case "Left":
-                    isTouchLeft = true;
-                    break;
-            }
-        }
+        isDragging = true;
     }
 
-    void OnTriggerExit2D(Collider2D collision)
+    void OnMouseUp()
     {
-        if (collision.gameObject.CompareTag("Border"))
+        isDragging = false;
+    }
+
+    void Fire()
+    {
+        curShootDelay += Time.deltaTime;
+
+        if (curShootDelay < maxShootDelay)
+            return;
+
+        switch (bulletType)
         {
-            switch (collision.gameObject.name)
-            {
-                case "Top":
-                    isTouchTop = false;
-                    break;
-                case "Right":
-                    isTouchRight = false;
-                    break;
-                case "Bottom":
-                    isTouchBottom = false;
-                    break;
-                case "Left":
-                    isTouchLeft = false;
-                    break;
-            }
+            case 0:
+                Instantiate(bulletObjA, transform.position, transform.rotation);
+                break;
+            case 1:
+                Instantiate(bulletObjA, transform.position + Vector3.right * 0.1f, transform.rotation);
+                Instantiate(bulletObjA, transform.position + Vector3.left * 0.1f, transform.rotation);
+                break;
+            case 2:
+                Instantiate(bulletObjA, transform.position + Vector3.right * 0.25f, transform.rotation);
+                Instantiate(bulletObjB, transform.position, transform.rotation);
+                Instantiate(bulletObjA, transform.position + Vector3.left * 0.25f, transform.rotation);
+                break;
+
         }
+
+        curShootDelay = 0f;
     }
 }
